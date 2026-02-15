@@ -10,6 +10,12 @@ class Vet {
 
   final List<String> acceptedAnimals;
 
+  final String? profileBase64;
+  final String? about;
+  final String? clinicGoal;
+  final String? address;
+  final String? city;
+
   Vet({
     required this.id,
     required this.name,
@@ -18,8 +24,13 @@ class Vet {
     required this.rating,
     required this.distance,
     required this.imageUrl,
+    this.profileBase64,
     required this.acceptedAnimals,
     required this.reviews,
+    this.about,
+    this.clinicGoal,
+    this.address,
+    this.city,
   });
 }
 

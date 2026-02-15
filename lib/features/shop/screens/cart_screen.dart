@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pet_care_app/features/shop/screens/checkout_screen.dart';
 import '../providers/cart_provider.dart';
 
 class CartScreen extends StatelessWidget {
@@ -63,10 +67,10 @@ class CartScreen extends StatelessWidget {
                 : ListView.builder(
                     padding: const EdgeInsets.all(24),
                     itemCount: cart.items.length,
-                    itemBuilder: (ctx, i) => _CartItemWidget(
-                      cart.items.values.toList()[i],
-                      cart.items.keys.toList()[i],
-                    ),
+                    itemBuilder: (ctx, i) {
+                      final entries = cart.items.entries.toList();
+                      return _CartItemWidget(entries[i].value, entries[i].key);
+                    },
                   ),
           ),
 
@@ -80,7 +84,7 @@ class CartScreen extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -114,18 +118,21 @@ class CartScreen extends StatelessWidget {
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Order placed successfully! Delivering to your home.',
-                              style: GoogleFonts.dmSans(),
+                        final user = FirebaseAuth.instance.currentUser;
+                        if (user == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please login to checkout'),
                             ),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: const Color(0xFF2D3047),
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const CheckoutScreen(),
                           ),
                         );
-                        cart.clear();
-                        Navigator.of(context).pop();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
@@ -190,7 +197,7 @@ class _CartItemWidget extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -199,14 +206,54 @@ class _CartItemWidget extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              height: 80,
               width: 80,
-              decoration: BoxDecoration(
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                color: Colors.grey[100],
-                image: DecorationImage(
-                  image: NetworkImage(item.imageUrl),
-                  fit: BoxFit.cover,
+                child: Builder(
+                  builder: (context) {
+                    final imageUrl = item.imageUrl;
+                    if (imageUrl.isEmpty) {
+                      return Container(
+                        color: Colors.grey[100],
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                        ),
+                      );
+                    }
+                    if (imageUrl.startsWith('http') ||
+                        imageUrl.startsWith('https')) {
+                      return Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[100],
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      );
+                    }
+                    try {
+                      return Image.memory(
+                        base64Decode(imageUrl),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[100],
+                          child: const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      return Container(
+                        color: Colors.grey[100],
+                        child: const Icon(Icons.error, color: Colors.grey),
+                      );
+                    }
+                  },
                 ),
               ),
             ),

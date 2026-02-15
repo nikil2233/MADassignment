@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -43,21 +44,41 @@ class _EducationScreenState extends State<EducationScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-      ),
-      floatingActionButton: _isVet
-          ? FloatingActionButton(
-              heroTag: 'add_article',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateArticleScreen(),
+        actions: [
+          if (_isVet)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: IconButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateArticleScreen(),
+                    ),
+                  );
+                },
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                );
-              },
-              child: const Icon(Icons.add),
-            )
-          : null,
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
+                tooltip: 'Add Article',
+              ),
+            ),
+        ],
+      ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('articles')
@@ -134,7 +155,7 @@ class ArticleCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -161,16 +182,45 @@ class ArticleCard extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(24),
                     ),
-                    child: Image.network(
-                      article.imageUrl,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 180,
-                        color: Colors.grey[200],
-                        child: const Icon(Icons.image_not_supported),
-                      ),
+                    child: Builder(
+                      builder: (context) {
+                        try {
+                          if (article.imageUrl.startsWith('http')) {
+                            return Image.network(
+                              article.imageUrl,
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    height: 180,
+                                    color: Colors.grey[200],
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                    ),
+                                  ),
+                            );
+                          }
+                          return Image.memory(
+                            base64Decode(article.imageUrl),
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 180,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.image_not_supported),
+                                ),
+                          );
+                        } catch (e) {
+                          return Container(
+                            height: 180,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.error),
+                          );
+                        }
+                      },
                     ),
                   ),
                   Positioned(
@@ -182,7 +232,7 @@ class ArticleCard extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -326,11 +376,27 @@ class ArticleDetailScreen extends StatelessWidget {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    article.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        Container(color: Colors.grey[300]),
+                  Builder(
+                    builder: (context) {
+                      try {
+                        if (article.imageUrl.startsWith('http')) {
+                          return Image.network(
+                            article.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(color: Colors.grey[300]),
+                          );
+                        }
+                        return Image.memory(
+                          base64Decode(article.imageUrl),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(color: Colors.grey[300]),
+                        );
+                      } catch (e) {
+                        return Container(color: Colors.grey[300]);
+                      }
+                    },
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -339,7 +405,7 @@ class ArticleDetailScreen extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.4),
+                          Colors.black.withValues(alpha: 0.4),
                         ],
                       ),
                     ),
@@ -379,7 +445,9 @@ class ArticleDetailScreen extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withOpacity(0.1),
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -405,7 +473,7 @@ class ArticleDetailScreen extends StatelessWidget {
                     Text(
                       article.content,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: const Color(0xFF3D405B).withOpacity(0.8),
+                        color: const Color(0xFF3D405B).withValues(alpha: 0.8),
                         height: 1.8,
                         fontSize: 16,
                       ),

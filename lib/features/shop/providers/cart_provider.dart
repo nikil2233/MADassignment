@@ -6,6 +6,7 @@ class CartItem {
   final int quantity;
   final double price;
   final String imageUrl;
+  final String vetId;
 
   CartItem({
     required this.id,
@@ -13,6 +14,7 @@ class CartItem {
     required this.quantity,
     required this.price,
     required this.imageUrl,
+    required this.vetId,
   });
 
   CartItem copyWith({
@@ -21,6 +23,7 @@ class CartItem {
     int? quantity,
     double? price,
     String? imageUrl,
+    String? vetId,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -28,6 +31,7 @@ class CartItem {
       quantity: quantity ?? this.quantity,
       price: price ?? this.price,
       imageUrl: imageUrl ?? this.imageUrl,
+      vetId: vetId ?? this.vetId,
     );
   }
 }
@@ -48,13 +52,21 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  void addItem(String productId, double price, String title, String imageUrl) {
+  void addItem(
+    String productId,
+    double price,
+    String title,
+    String imageUrl,
+    String vetId, {
+    int quantity = 1,
+  }) {
     if (_items.containsKey(productId)) {
       // update existing item
       _items.update(
         productId,
-        (existingCartItem) =>
-            existingCartItem.copyWith(quantity: existingCartItem.quantity + 1),
+        (existingCartItem) => existingCartItem.copyWith(
+          quantity: existingCartItem.quantity + quantity,
+        ),
       );
     } else {
       // add new item
@@ -64,8 +76,9 @@ class CartProvider with ChangeNotifier {
           id: DateTime.now().toString(),
           title: title,
           price: price,
-          quantity: 1,
+          quantity: quantity,
           imageUrl: imageUrl,
+          vetId: vetId,
         ),
       );
     }

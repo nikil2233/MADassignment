@@ -21,8 +21,8 @@ Future<void> main() async {
 
   try {
     await FirebaseFirestore.instance.collection('products').add(product);
-    print('Product added successfully!');
+    debugPrint('Product added successfully!');
   } catch (e) {
-    print('Error adding product: $e');
+    debugPrint('Error adding product: $e');
   }
 }

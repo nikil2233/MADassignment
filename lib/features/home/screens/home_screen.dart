@@ -2,21 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pet_care_app/features/vets/models/vet.dart';
 import 'package:pet_care_app/features/profile/screens/profile_screen.dart';
+import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pet_care_app/features/education/screens/create_article_screen.dart';
+
+import 'package:pet_care_app/features/shop/screens/add_product_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback onShopTap;
   final VoidCallback onVetTap;
   final VoidCallback onEducationTap;
+  final String? userRole;
 
   const HomeScreen({
     super.key,
     required this.onShopTap,
     required this.onVetTap,
     required this.onEducationTap,
+    this.userRole,
   });
 
   @override
   Widget build(BuildContext context) {
+    bool isVet = userRole == 'vet';
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
@@ -42,7 +51,7 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Pet Lover 👋',
+                          isVet ? 'Vet 👋' : 'Pet Lover 👋',
                           style: GoogleFonts.dmSans(
                             fontSize: 26,
                             fontWeight: FontWeight.bold,
@@ -67,7 +76,7 @@ class HomeScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -94,7 +103,7 @@ class HomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2D3047).withOpacity(0.08),
+                        color: const Color(0xFF2D3047).withValues(alpha: 0.08),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -134,7 +143,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF2D3047).withOpacity(0.4),
+                        color: const Color(0xFF2D3047).withValues(alpha: 0.4),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -160,28 +169,31 @@ class HomeScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE07A5F),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'PROMO 20% OFF',
-                                style: GoogleFonts.dmSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
+                            if (!isVet)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE07A5F),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'PROMO 20% OFF',
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const Spacer(),
+                            if (!isVet) const Spacer(),
                             Text(
-                              'Premium Food\nFor Your Pet',
+                              isVet
+                                  ? 'Expand Your\nBusiness'
+                                  : 'Premium Food\nFor Your Pet',
                               style: GoogleFonts.dmSans(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -191,11 +203,21 @@ class HomeScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 12),
                             InkWell(
-                              onTap: onShopTap,
+                              onTap: isVet
+                                  ? () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const AddProductScreen(),
+                                        ),
+                                      );
+                                    }
+                                  : onShopTap,
                               child: Row(
                                 children: [
                                   Text(
-                                    'Shop Now',
+                                    isVet ? 'List a Product' : 'Shop Now',
                                     style: GoogleFonts.dmSans(
                                       color: const Color(0xFF81B29A),
                                       fontWeight: FontWeight.bold,
@@ -218,7 +240,7 @@ class HomeScreen extends StatelessWidget {
                         right: 20,
                         bottom: 0,
                         child: Image.network(
-                          'https://pngimg.com/uploads/dog/dog_PNG50321.png',
+                          'https://ouch-cdn2.icons8.com/6k2-1rGZ_2x2_2x2/rs:fit:256:256/czM6Ly9pY29uczgu/b3VjaC1wcm9kLmFz/c2V0cy9wbmcvNDUy/Lzc0ZDI4ZDM4LTc0/ODMtNDQ2Ni1hNTQ4/LTQzMzQyZGM2M2Mx/NS5wbmc.png',
                           height: 160,
                           fit: BoxFit.contain,
                           errorBuilder: (c, e, s) => const SizedBox(),
@@ -261,169 +283,265 @@ class HomeScreen extends StatelessWidget {
                   children: [
                     _buildCategoryPill(
                       context,
-                      'Shopping',
-                      Icons.shopping_bag_outlined,
+                      isVet ? 'List Product' : 'Shopping',
+                      isVet
+                          ? Icons.add_business_outlined
+                          : Icons.shopping_bag_outlined,
                       const Color(0xFFE07A5F),
-                      onShopTap,
+                      isVet
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AddProductScreen(),
+                                ),
+                              );
+                            }
+                          : onShopTap,
                     ),
+                    if (userRole != 'vet')
+                      _buildCategoryPill(
+                        context,
+                        'Vets',
+                        Icons.medical_services_outlined,
+                        const Color(0xFF81B29A),
+                        onVetTap,
+                      ),
                     _buildCategoryPill(
                       context,
-                      'Vets',
-                      Icons.medical_services_outlined,
-                      const Color(0xFF81B29A),
-                      onVetTap,
-                    ),
-                    _buildCategoryPill(
-                      context,
-                      'Learn',
-                      Icons.school_outlined,
+                      isVet ? 'Post Article' : 'Learn',
+                      isVet ? Icons.post_add_outlined : Icons.school_outlined,
                       const Color(0xFFF2CC8F),
-                      onEducationTap,
+                      isVet
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const CreateArticleScreen(),
+                                ),
+                              );
+                            }
+                          : onEducationTap,
                     ),
-                    _buildCategoryPill(
-                      context,
-                      'Grooming',
-                      Icons.content_cut_outlined,
-                      const Color(0xFF3D405B),
-                      () {},
-                    ),
+                    if (!isVet)
+                      _buildCategoryPill(
+                        context,
+                        'Grooming',
+                        Icons.content_cut_outlined,
+                        const Color(0xFF3D405B),
+                        () {},
+                      ),
                   ],
                 ),
               ),
             ),
 
             // Featured Vets
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Top Vets',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: onVetTap,
-                      child: Text(
-                        'See All',
+            if (userRole != 'vet') ...[
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Top Vets',
                         style: GoogleFonts.dmSans(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                           color: Theme.of(context).primaryColor,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
-                  ],
+                      TextButton(
+                        onPressed: onVetTap,
+                        child: Text(
+                          'See All',
+                          style: GoogleFonts.dmSans(
+                            color: Theme.of(context).primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final vet = mockVets[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.03),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .where('role', isEqualTo: 'vet')
+                    .limit(3)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SliverToBoxAdapter(child: SizedBox());
+                  }
+
+                  final vets = snapshot.data!.docs;
+
+                  if (vets.isEmpty) {
+                    return const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Text("No vets registered yet."),
                       ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.network(
-                              vet.imageUrl,
-                              width: 80,
-                              height: 80,
-                              fit: BoxFit.cover,
-                            ),
+                    );
+                  }
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final data = vets[index].data() as Map<String, dynamic>;
+                        final vet = Vet(
+                          id: vets[index].id,
+                          name: data['name'] ?? 'Unknown',
+                          clinicName: data['clinicName'] ?? 'Clinic',
+                          specialty: data['specialty'] ?? 'General',
+                          rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+                          distance:
+                              (data['distance'] as num?)?.toDouble() ?? 0.0,
+                          imageUrl:
+                              data['imageUrl'] ?? 'https://placehold.co/150',
+                          profileBase64: data['profileBase64'],
+                          reviews: data['reviews'] ?? 0,
+                          acceptedAnimals: List<String>.from(
+                            data['acceptedAnimals'] ?? [],
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  vet.name,
-                                  style: GoogleFonts.dmSans(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
+                        );
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Builder(
+                                  builder: (context) {
+                                    if (vet.profileBase64 != null) {
+                                      try {
+                                        return Image.memory(
+                                          base64Decode(vet.profileBase64!),
+                                          width: 80,
+                                          height: 80,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Container(
+                                                    width: 80,
+                                                    height: 80,
+                                                    color: Colors.grey[300],
+                                                    child: const Icon(
+                                                      Icons.person,
+                                                    ),
+                                                  ),
+                                        );
+                                      } catch (e) {
+                                        // fallthrough
+                                      }
+                                    }
+                                    return Image.network(
+                                      vet.imageUrl,
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                                width: 80,
+                                                height: 80,
+                                                color: Colors.grey[300],
+                                                child: const Icon(Icons.person),
+                                              ),
+                                    );
+                                  },
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  vet.specialty,
-                                  style: TextStyle(
-                                    color: Colors.grey[500],
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                      Icons.star_rounded,
-                                      color: const Color(0xFFF2CC8F),
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 4),
                                     Text(
-                                      vet.rating.toString(),
-                                      style: const TextStyle(
+                                      vet.name,
+                                      style: GoogleFonts.dmSans(
                                         fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      '(${vet.reviews} reviews)',
+                                      vet.specialty,
                                       style: TextStyle(
-                                        color: Colors.grey[400],
-                                        fontSize: 12,
+                                        color: Colors.grey[500],
+                                        fontSize: 13,
                                       ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.star_rounded,
+                                          color: const Color(0xFFF2CC8F),
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          vet.rating.toString(),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '(${vet.reviews} reviews)',
+                                          style: TextStyle(
+                                            color: Colors.grey[400],
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).cardColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.grey[200]!),
+                                ),
+                                child: Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 14,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).cardColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.grey[200]!),
-                            ),
-                            child: Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: Colors.grey[400],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  childCount: mockVets.length > 3
-                      ? 3
-                      : mockVets.length, // Show top 3
-                ),
+                        );
+                      }, childCount: vets.length),
+                    ),
+                  );
+                },
               ),
-            ),
+            ],
             const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
           ],
         ),
@@ -449,7 +567,7 @@ class HomeScreen extends StatelessWidget {
               height: 70,
               width: 70,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Icon(icon, color: color, size: 30),

@@ -1,11 +1,11 @@
+import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // To check platform
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
@@ -18,9 +18,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _priceController = TextEditingController(text: '12.0');
 
-  XFile? _pickedFile; // Stores the picked image file
+  final List<XFile> _pickedFiles = []; // Stores the picked image files
+  double _currentPrice = 12.0;
+  int _quantity = 1;
   String _selectedCategory = 'Food';
   bool _isLoading = false;
 
@@ -43,10 +45,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
   Future<void> _pickImage() async {
     try {
       final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
+      final List<XFile> images = await picker.pickMultiImage();
+      if (images.isNotEmpty) {
         setState(() {
-          _pickedFile = image;
+          _pickedFiles.addAll(images);
         });
       }
     } catch (e) {
@@ -56,50 +58,48 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
-  Future<String?> _uploadImage(XFile file) async {
+  void _removeImage(int index) {
+    setState(() {
+      _pickedFiles.removeAt(index);
+    });
+  }
+
+  Future<String?> _convertImageToBase64(XFile file) async {
     try {
-      final String fileName = '${DateTime.now().microsecondsSinceEpoch}.jpg';
-      final Reference ref = FirebaseStorage.instance
-          .ref()
-          .child('product_images')
-          .child(fileName);
-
-      if (kIsWeb) {
-        // Use bytes for web
-        final bytes = await file.readAsBytes();
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      } else {
-        // Use file path for mobile
-        await ref.putFile(File(file.path));
-      }
-
-      return await ref.getDownloadURL();
+      final bytes = await file.readAsBytes();
+      return base64Encode(bytes);
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      debugPrint('Error converting image: $e');
       return null;
     }
   }
 
   Future<void> _submitProduct() async {
     if (_formKey.currentState!.validate()) {
+      if (_pickedFiles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please add at least one image')),
+        );
+        return;
+      }
       setState(() => _isLoading = true);
       try {
+        debugPrint('Submitting quantity: $_quantity');
         final double? price = double.tryParse(_priceController.text.trim());
         if (price == null) throw Exception('Invalid price');
 
         final user = FirebaseAuth.instance.currentUser;
 
-        // 1. Upload Image if selected
-        String imageUrl =
-            'https://images.unsplash.com/photo-1589924691195-41432c84c161'; // Default
-        if (_pickedFile != null) {
-          final url = await _uploadImage(_pickedFile!);
-          if (url != null) {
-            imageUrl = url;
-          } else {
-            throw Exception('Image upload failed');
+        // 1. Convert Images to Base64
+        List<String> imageUrls = [];
+        for (var file in _pickedFiles) {
+          final base64String = await _convertImageToBase64(file);
+          if (base64String != null) {
+            imageUrls.add(base64String);
           }
         }
+
+        if (imageUrls.isEmpty) throw Exception('Image conversion failed');
 
         // 2. Save Product
         await FirebaseFirestore.instance.collection('products').add({
@@ -107,9 +107,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
           'category': _selectedCategory,
           'description': _descController.text.trim(),
           'price': price,
-          'imageUrl': imageUrl,
+          'quantity': _quantity,
+          'imageUrl': imageUrls.first, // Main image
+          'imageUrls': imageUrls, // All images
           'createdAt': FieldValue.serverTimestamp(),
           'vetId': user?.uid ?? 'unknown',
+          'reviews': [],
         });
 
         if (mounted) {
@@ -189,67 +192,104 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
               const SizedBox(height: 16),
 
-              _buildTextField(
-                controller: _priceController,
-                label: 'Price',
-                icon: Icons.attach_money,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-              ),
+              _buildPriceSelector(),
+              const SizedBox(height: 16),
+              _buildQuantitySelector(),
               const SizedBox(height: 24),
 
               // Image Picker UI
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 180,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey[300]!),
-                    image: _pickedFile != null
-                        ? DecorationImage(
-                            image: kIsWeb
-                                ? NetworkImage(
-                                    _pickedFile!.path,
-                                  ) // Using blob URL on web
-                                : FileImage(File(_pickedFile!.path))
-                                      as ImageProvider,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: _pickedFile == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
+              if (_pickedFiles.isNotEmpty)
+                SizedBox(
+                  height: 120,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _pickedFiles.length + 1,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      if (index == _pickedFiles.length) {
+                        return GestureDetector(
+                          onTap: _pickImage,
+                          child: Container(
+                            width: 120,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Icon(
                               Icons.add_photo_alternate_rounded,
-                              size: 48,
+                              size: 32,
                               color: Colors.grey[400],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap to add product image',
-                              style: GoogleFonts.dmSans(
-                                color: Colors.grey[500],
+                          ),
+                        );
+                      }
+                      return Stack(
+                        children: [
+                          Container(
+                            width: 120,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey[200]!),
+                              image: DecorationImage(
+                                image: kIsWeb
+                                    ? NetworkImage(_pickedFiles[index].path)
+                                    : FileImage(File(_pickedFiles[index].path))
+                                          as ImageProvider,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                          ],
-                        )
-                      : null,
-                ),
-              ),
-              if (_pickedFile != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Center(
-                    child: TextButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('Change Image'),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => _removeImage(index),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                )
+              else
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 180,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_photo_alternate_rounded,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to add photos',
+                          style: GoogleFonts.dmSans(color: Colors.grey[500]),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -319,6 +359,125 @@ class _AddProductScreenState extends State<AddProductScreen> {
         contentPadding: const EdgeInsets.all(18),
       ),
       validator: (v) => v!.isEmpty ? '$label is required' : null,
+    );
+  }
+
+  Widget _buildPriceSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Price',
+          style: GoogleFonts.dmSans(color: Colors.grey[600], fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[100]!),
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[50],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.attach_money, color: Theme.of(context).primaryColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  _currentPrice.toStringAsFixed(2),
+                  style: GoogleFonts.dmSans(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  if (_currentPrice > 0.5) {
+                    setState(() {
+                      _currentPrice -= 0.5;
+                      _priceController.text = _currentPrice.toString();
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove_circle_outline),
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _currentPrice += 0.5;
+                    _priceController.text = _currentPrice.toString();
+                  });
+                },
+                icon: const Icon(Icons.add_circle_outline),
+                color: Theme.of(context).primaryColor,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuantitySelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quantity',
+          style: GoogleFonts.dmSans(color: Colors.grey[600], fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[100]!),
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[50],
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.inventory_2_outlined,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  '$_quantity',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  if (_quantity > 1) {
+                    setState(() {
+                      _quantity--;
+                    });
+                  }
+                },
+                icon: const Icon(Icons.remove_circle_outline),
+                color: Colors.grey[600],
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _quantity++;
+                  });
+                },
+                icon: const Icon(Icons.add_circle_outline),
+                color: Theme.of(context).primaryColor,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

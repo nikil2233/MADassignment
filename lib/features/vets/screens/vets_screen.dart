@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pet_care_app/features/vets/models/vet.dart';
 import 'package:pet_care_app/features/vets/screens/book_appointment_screen.dart';
+import 'package:pet_care_app/features/vets/screens/user_appointments_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VetsScreen extends StatefulWidget {
   const VetsScreen({super.key});
@@ -15,11 +18,7 @@ class _VetsScreenState extends State<VetsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredVets = _selectedAnimal == 'All'
-        ? mockVets
-        : mockVets
-              .where((vet) => vet.acceptedAnimals.contains(_selectedAnimal))
-              .toList();
+    // moved logic inside StreamBuilder
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -50,7 +49,7 @@ class _VetsScreenState extends State<VetsScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -64,6 +63,36 @@ class _VetsScreenState extends State<VetsScreen> {
                 ),
                 onPressed: () {
                   // TODO: Map View
+                },
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.history_rounded,
+                    color: Theme.of(context).primaryColor,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const UserAppointmentsScreen(),
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 16),
@@ -80,7 +109,7 @@ class _VetsScreenState extends State<VetsScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -161,8 +190,70 @@ class _VetsScreenState extends State<VetsScreen> {
           const SliverPadding(padding: EdgeInsets.only(top: 16)),
 
           // Vets List
-          filteredVets.isEmpty
-              ? SliverFillRemaining(
+          // Vets List
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('role', isEqualTo: 'vet')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pets, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No vets registered yet',
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              final allVets = snapshot.data!.docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return Vet(
+                  id: doc.id,
+                  name: data['name'] ?? 'Unknown',
+                  clinicName: data['clinicName'] ?? 'Clinic',
+                  specialty: data['specialty'] ?? 'General',
+                  rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+                  distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
+                  imageUrl: data['imageUrl'] ?? 'https://placehold.co/150',
+                  profileBase64: data['profileBase64'],
+                  about: data['about'],
+                  clinicGoal: data['clinicGoal'],
+                  address: data['address'],
+                  city: data['city'],
+                  reviews: data['reviews'] ?? 0,
+                  acceptedAnimals: List<String>.from(
+                    data['acceptedAnimals'] ?? [],
+                  ),
+                );
+              }).toList();
+
+              final filteredVets = _selectedAnimal == 'All'
+                  ? allVets
+                  : allVets
+                        .where(
+                          (vet) =>
+                              vet.acceptedAnimals.contains(_selectedAnimal),
+                        )
+                        .toList();
+
+              if (filteredVets.isEmpty) {
+                return SliverFillRemaining(
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -176,13 +267,17 @@ class _VetsScreenState extends State<VetsScreen> {
                       ],
                     ),
                   ),
-                )
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final vet = filteredVets[index];
-                    return _buildVetCard(context, vet);
-                  }, childCount: filteredVets.length),
-                ),
+                );
+              }
+
+              return SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final vet = filteredVets[index];
+                  return _buildVetCard(context, vet);
+                }, childCount: filteredVets.length),
+              );
+            },
+          ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
@@ -197,7 +292,7 @@ class _VetsScreenState extends State<VetsScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -221,16 +316,45 @@ class _VetsScreenState extends State<VetsScreen> {
               children: [
                 Hero(
                   tag: 'vet-${vet.id}',
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      image: DecorationImage(
-                        image: NetworkImage(vet.imageUrl),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: vet.profileBase64 != null
+                        ? Image.memory(
+                            base64Decode(vet.profileBase64!),
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 90,
+                                height: 90,
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey[400],
+                                ),
+                              );
+                            },
+                          )
+                        : Image.network(
+                            vet.imageUrl,
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 90,
+                                height: 90,
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey[400],
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ),
                 const SizedBox(width: 16),

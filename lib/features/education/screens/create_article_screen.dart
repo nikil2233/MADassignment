@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -5,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
 class CreateArticleScreen extends StatefulWidget {
   const CreateArticleScreen({super.key});
@@ -57,25 +57,12 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
     }
   }
 
-  Future<String?> _uploadImage(XFile file) async {
+  Future<String?> _convertImageToBase64(XFile file) async {
     try {
-      final String fileName =
-          'article_${DateTime.now().microsecondsSinceEpoch}.jpg';
-      final Reference ref = FirebaseStorage.instance
-          .ref()
-          .child('article_images')
-          .child(fileName);
-
-      if (kIsWeb) {
-        final bytes = await file.readAsBytes();
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
-      } else {
-        await ref.putFile(File(file.path));
-      }
-
-      return await ref.getDownloadURL();
+      final bytes = await file.readAsBytes();
+      return base64Encode(bytes);
     } catch (e) {
-      debugPrint('Error uploading image: $e');
+      debugPrint('Error converting image: $e');
       return null;
     }
   }
@@ -88,11 +75,9 @@ class _CreateArticleScreenState extends State<CreateArticleScreen> {
             'https://images.unsplash.com/photo-1548199973-03cce0bbc87b'; // Default fallback
 
         if (_pickedFile != null) {
-          final url = await _uploadImage(_pickedFile!);
-          if (url != null) {
-            imageUrl = url;
-          } else {
-            throw Exception('Image upload failed');
+          final base64String = await _convertImageToBase64(_pickedFile!);
+          if (base64String != null) {
+            imageUrl = base64String;
           }
         }
 

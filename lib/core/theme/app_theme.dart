@@ -27,7 +27,7 @@ class AppTheme {
       seedColor: primaryColor,
       surface: surfaceColor,
       secondary: secondaryColor,
-      primaryContainer: secondaryColor.withOpacity(0.2),
+      primaryContainer: secondaryColor.withValues(alpha: 0.2),
       brightness: Brightness.light,
     ),
     textTheme: GoogleFonts.dmSansTextTheme().copyWith(
@@ -54,7 +54,7 @@ class AppTheme {
       ),
       bodyMedium: TextStyle(
         fontSize: 14,
-        color: const Color(0xFF3D405B).withOpacity(0.8),
+        color: const Color(0xFF3D405B).withValues(alpha: 0.8),
         height: 1.5,
       ),
     ),
@@ -86,14 +86,16 @@ class AppTheme {
         borderSide: const BorderSide(color: secondaryColor, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      labelStyle: TextStyle(color: const Color(0xFF3D405B).withOpacity(0.5)),
+      labelStyle: TextStyle(
+        color: const Color(0xFF3D405B).withValues(alpha: 0.5),
+      ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 10,
-        shadowColor: primaryColor.withOpacity(0.3),
+        shadowColor: primaryColor.withValues(alpha: 0.3),
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         textStyle: GoogleFonts.dmSans(
@@ -129,7 +131,7 @@ class AppTheme {
       seedColor: secondaryColor,
       surface: const Color(0xFF24243C),
       secondary: accentColor,
-      primaryContainer: secondaryColor.withOpacity(0.2),
+      primaryContainer: secondaryColor.withValues(alpha: 0.2),
       brightness: Brightness.dark,
     ),
     textTheme: GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme).copyWith(

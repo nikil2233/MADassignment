@@ -5,7 +5,10 @@ class Product {
   final double price;
   final String imageUrl;
   final String category;
-  final String vetId; // ID of the vet who posted this product
+  final String vetId;
+  final int quantity;
+  final List<Map<String, dynamic>> reviews;
+  final List<String> imageUrls;
 
   Product({
     required this.id,
@@ -15,6 +18,9 @@ class Product {
     required this.imageUrl,
     required this.category,
     required this.vetId,
+    this.quantity = 0,
+    this.reviews = const [],
+    this.imageUrls = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -25,6 +31,9 @@ class Product {
       'imageUrl': imageUrl,
       'category': category,
       'vetId': vetId,
+      'quantity': quantity,
+      'reviews': reviews,
+      'imageUrls': imageUrls,
     };
   }
 
@@ -33,10 +42,13 @@ class Product {
       id: id,
       name: map['name'] ?? '',
       description: map['description'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
+      price: (num.tryParse(map['price'].toString()) ?? 0.0).toDouble(),
       imageUrl: map['imageUrl'] ?? '',
       category: map['category'] ?? 'General',
       vetId: map['vetId'] ?? '',
+      quantity: (num.tryParse(map['quantity'].toString()) ?? 0).toInt(),
+      reviews: List<Map<String, dynamic>>.from(map['reviews'] ?? []),
+      imageUrls: List<String>.from(map['imageUrls'] ?? []),
     );
   }
 }

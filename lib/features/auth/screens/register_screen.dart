@@ -41,6 +41,15 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  // Vet Controllers
+  final _clinicNameController = TextEditingController();
+  final _specialtyController = TextEditingController();
+  final _imageUrlController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _priceController = TextEditingController();
+  final List<String> _acceptedAnimals = [];
+
   final PageController _pageController = PageController();
 
   final List<PetDraft> _myPets = [];
@@ -69,6 +78,11 @@ class _RegisterScreenState extends State<RegisterScreen>
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _clinicNameController.dispose();
+    _specialtyController.dispose();
+    _imageUrlController.dispose();
+    _bioController.dispose();
+    _priceController.dispose();
     _pageController.dispose();
     _animationController.dispose();
     super.dispose();
@@ -83,6 +97,17 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         );
         return;
+      }
+      if (_selectedRole == 'Veterinarian') {
+        if (_clinicNameController.text.isEmpty ||
+            _specialtyController.text.isEmpty ||
+            _bioController.text.isEmpty ||
+            _priceController.text.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please fill in all vet details')),
+          );
+          return;
+        }
       }
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -278,6 +303,22 @@ class _RegisterScreenState extends State<RegisterScreen>
               'email': _emailController.text.trim(),
               'pets': _selectedRole == 'Pet Owner' ? petsList : [],
               'createdAt': FieldValue.serverTimestamp(),
+              // Vet Specific Data
+              if (_selectedRole == 'Veterinarian') ...{
+                'clinicName': _clinicNameController.text.trim(),
+                'specialty': _specialtyController.text.trim(),
+                'imageUrl': _imageUrlController.text.trim().isEmpty
+                    ? 'https://cdn-icons-png.flaticon.com/512/3304/3304567.png'
+                    : _imageUrlController.text.trim(),
+                'bio': _bioController.text.trim(),
+                'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
+                'acceptedAnimals': _acceptedAnimals.isEmpty
+                    ? ['Dog', 'Cat']
+                    : _acceptedAnimals,
+                'rating': 5.0, // Default start rating
+                'reviews': 0,
+                'distance': 1.5, // Mock distance for now
+              },
             });
 
         if (mounted) {
@@ -432,7 +473,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -443,7 +484,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                       CircleAvatar(
                         backgroundColor: Theme.of(
                           context,
-                        ).primaryColor.withOpacity(0.1),
+                        ).primaryColor.withValues(alpha: 0.1),
                         child: Icon(
                           Icons.pets,
                           color: Theme.of(context).primaryColor,
@@ -489,6 +530,121 @@ class _RegisterScreenState extends State<RegisterScreen>
                 ),
               ),
             ),
+          ],
+
+          if (_selectedRole == 'Veterinarian') ...[
+            Text(
+              'Professional Details',
+              style: GoogleFonts.dmSans(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _clinicNameController,
+              decoration: InputDecoration(
+                labelText: 'Clinic Name',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                prefixIcon: const Icon(Icons.local_hospital_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _specialtyController,
+              decoration: InputDecoration(
+                labelText: 'Specialty (e.g. Surgeon)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                prefixIcon: const Icon(Icons.medical_services_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _priceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Consultation Price (\$)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                prefixIcon: const Icon(Icons.attach_money),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _imageUrlController,
+              decoration: InputDecoration(
+                labelText: 'Profile Image URL (Optional)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                prefixIcon: const Icon(Icons.image_outlined),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _bioController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'Bio / Description',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                prefixIcon: const Icon(Icons.description_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Accepted Animals',
+              style: GoogleFonts.dmSans(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: ['Dog', 'Cat', 'Bird', 'Hamster', 'Rabbit', 'Reptile']
+                  .map((animal) {
+                    final isSelected = _acceptedAnimals.contains(animal);
+                    return FilterChip(
+                      label: Text(animal),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _acceptedAnimals.add(animal);
+                          } else {
+                            _acceptedAnimals.remove(animal);
+                          }
+                        });
+                      },
+                      backgroundColor: Colors.white,
+                      selectedColor: Theme.of(context).primaryColor,
+                      labelStyle: GoogleFonts.dmSans(
+                        color: isSelected ? Colors.white : Colors.grey[600],
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected
+                              ? Colors.transparent
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      showCheckmark: false,
+                    );
+                  })
+                  .toList(),
+            ),
+            const SizedBox(height: 24),
           ],
 
           const SizedBox(height: 48),
@@ -624,7 +780,9 @@ class _RegisterScreenState extends State<RegisterScreen>
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      color: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.3),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
